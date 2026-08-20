@@ -332,7 +332,7 @@ jobs:
 
       - name: Extract metadata for Control Plane
         id: meta-control-plane
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/control-plane
           tags: |
@@ -356,7 +356,7 @@ jobs:
 
       - name: Extract metadata for Worker
         id: meta-worker
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/worker
           tags: |
@@ -380,7 +380,7 @@ jobs:
 
       - name: Extract metadata for Frontend
         id: meta-frontend
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend
           tags: |
