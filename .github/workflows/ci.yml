@@ -449,7 +449,7 @@ jobs:
           category: sbom-control-plane
 
       - name: Attest SBOMs
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: sbom-*.spdx.json
 
