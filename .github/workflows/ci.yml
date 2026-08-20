@@ -599,7 +599,7 @@ jobs:
           mv CHANGELOG.new CHANGELOG.md
 
       - name: Commit CHANGELOG
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "chore: update CHANGELOG for ${{ github.ref_name }}"
           file_pattern: CHANGELOG.md
