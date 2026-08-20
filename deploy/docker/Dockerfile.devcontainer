@@ -1,0 +1,56 @@
+# DevContainer Dockerfile for DevPlatform
+# Based on golang:1.22 with Node.js for frontend development
+
+FROM golang:1.22-bookworm
+
+# Install Node.js 20 for frontend
+RUN apt-get update && apt-get install -y \
+    curl \
+    gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install dev tools
+RUN apt-get update && apt-get install -y \
+    git \
+    make \
+    gcc \
+    musl-dev \
+    bash \
+    vim \
+    curl \
+    jq \
+    # Kubernetes tools
+    && curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    && install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
+    # Kustomize
+    && curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash - \
+    && mv kustomize /usr/local/bin/kustomize \
+    # Helm
+    && curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Go dev tools
+RUN go install github.com/cosmtrek/air@latest \
+    && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest \
+    && go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest \
+    && go install google.golang.org/protobuf/cmd/protoc-gen-go@latest \
+    && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest \
+    && go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+# Install frontend tools globally
+RUN npm install -g \
+    typescript \
+    tsx \
+    nodemon \
+    eslint \
+    prettier \
+    @typescript-eslint/parser \
+    @typescript-eslint/eslint-plugin
+
+WORKDIR /workspace
+
+EXPOSE 8080 3000 3001 9090 5432 4222 6379
+
+CMD ["bash"]

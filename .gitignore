@@ -1,0 +1,61 @@
+# Build artifacts
+/bin/
+/dist/
+/tmp/
+*.exe
+*.test
+*.out
+
+# Dependencies
+/node_modules/
+/vendor/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+build-errors.log
+
+# Test coverage
+coverage.out
+coverage.html
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# CI
+*.tmp
+
+# Go
+*.test
+go.work
+go.work.sum
+
+# Frontend
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Reports
+trivy-reports/
+sbom/
+*.sbom.json
+
+# Local
+local/

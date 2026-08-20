@@ -1,0 +1,241 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: devplatform-postgres
+    environment:
+      POSTGRES_DB: devplatform
+      POSTGRES_USER: devplatform
+      POSTGRES_PASSWORD: devplatform
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deploy/migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devplatform -d devplatform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devplatform
+
+  # NATS Message Queue
+  nats:
+    image: nats:2.10-alpine
+    container_name: devplatform-nats
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "4222:4222"  # Client connections
+      - "8222:8222"  # Monitoring
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD", "nats-server", "-healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devplatform
+
+  # Redis for caching and log streaming
+  redis:
+    image: redis:7-alpine
+    container_name: devplatform-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devplatform
+
+  # Control Plane API (Go)
+  control-plane:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.dev
+    container_name: devplatform-control-plane
+    environment:
+      - SERVER_ADDR=:8080
+      - DATABASE_URL=postgres://devplatform:devplatform@postgres:5432/devplatform?sslmode=disable
+      - NATS_URL=nats://nats:4222
+      - REDIS_ADDR=redis:6379
+      - JWT_SECRET=dev-secret-change-in-production
+      - LOG_LEVEL=debug
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - AI_PROVIDER=mock
+    ports:
+      - "8080:8080"
+      - "9090:9090"  # Metrics
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./cmd:/app/cmd
+      - ./internal:/app/internal
+      - ./pkg:/app/pkg
+      - ./go.mod:/app/go.mod
+      - ./go.sum:/app/go.sum
+    networks:
+      - devplatform
+
+  # Worker for async jobs
+  worker:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.dev
+    container_name: devplatform-worker
+    command: ["./devplatform-worker"]
+    environment:
+      - DATABASE_URL=postgres://devplatform:devplatform@postgres:5432/devplatform?sslmode=disable
+      - NATS_URL=nats://nats:4222
+      - REDIS_ADDR=redis:6379
+      - LOG_LEVEL=debug
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - AI_PROVIDER=mock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./cmd:/app/cmd
+      - ./internal:/app/internal
+      - ./pkg:/app/pkg
+      - ./go.mod:/app/go.mod
+      - ./go.sum:/app/go.sum
+    networks:
+      - devplatform
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: devplatform-frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/package.json:/app/package.json
+      - ./frontend/next.config.js:/app/next.config.js
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/tailwind.config.js:/app/tailwind.config.js
+      - ./frontend/postcss.config.js:/app/postcss.config.js
+    depends_on:
+      - control-plane
+    networks:
+      - devplatform
+
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.106
+    container_name: devplatform-otel
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./deploy/observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:4318"  # OTLP HTTP
+      - "8888:8888"  # Prometheus metrics
+    depends_on:
+      - tempo
+      - loki
+    networks:
+      - devplatform
+
+  # Tempo for traces
+  tempo:
+    image: grafana/tempo:2.4
+    container_name: devplatform-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./deploy/observability/tempo.yaml:/etc/tempo.yaml
+      - tempo_data:/tmp/tempo
+    ports:
+      - "3200:3200"  # Tempo
+      - "4317:4317"  # OTLP gRPC (alternative)
+    networks:
+      - devplatform
+
+  # Loki for logs
+  loki:
+    image: grafana/loki:2.9
+    container_name: devplatform-loki
+    command: ["-config.file=/etc/loki.yaml"]
+    volumes:
+      - ./deploy/observability/loki.yaml:/etc/loki.yaml
+      - loki_data:/tmp/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - devplatform
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:v2.48
+    container_name: devplatform-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - devplatform
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:10.2
+    container_name: devplatform-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - ./deploy/observability/grafana:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+    networks:
+      - devplatform
+
+volumes:
+  postgres_data:
+  nats_data:
+  redis_data:
+  tempo_data:
+  loki_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  devplatform:
+    driver: bridge

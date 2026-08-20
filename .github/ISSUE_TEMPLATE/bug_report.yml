@@ -1,0 +1,98 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the sections below.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What version are you running? (git tag, commit hash, or "main")
+      placeholder: "v1.2.3 or abc1234"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Where did you encounter the bug?
+      placeholder: "local dev / staging / production / docker / kubernetes"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Clear and concise description of the bug
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal steps to reproduce the issue
+      placeholder: |
+        1. Start the application
+        2. Call endpoint X with payload Y
+        3. Observe error Z
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+      placeholder: The API should return...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: The API returned 500 with...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs & Traces
+      description: Relevant log output, stack traces, or trace IDs
+      render: shell
+      placeholder: |
+        2024-01-15T10:30:00Z ERROR handler.go:42 error="connection refused"
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: Relevant config (redact secrets!)
+      render: yaml
+      placeholder: |
+        database:
+          host: localhost
+          port: 5432
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues for duplicates
+          required: true
+        - label: I have provided all requested information
+          required: true
+        - label: This is not a security vulnerability (report those via SECURITY.md)
+          required: true

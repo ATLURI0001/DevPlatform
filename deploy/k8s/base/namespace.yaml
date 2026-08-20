@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: devplatform
+  labels:
+    name: devplatform
+    app.kubernetes.io/name: devplatform
+    app.kubernetes.io/part-of: devplatform

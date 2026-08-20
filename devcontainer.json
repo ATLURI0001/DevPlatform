@@ -1,0 +1,54 @@
+{
+  "name": "DevPlatform",
+  "build": {
+    "dockerfile": "deploy/docker/Dockerfile.devcontainer",
+    "context": "..",
+    "args": {
+      "VARIANT": "1.22"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": "explicit"
+        },
+        "go.formatTool": "goimports",
+        "go.lintTool": "golangci-lint",
+        "go.testFlags": ["-v", "-race"],
+        "files.trimTrailingWhitespace": true,
+        "files.insertFinalNewline": true
+      },
+      "extensions": [
+        "golang.go",
+        "ms-vscode.go",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-azuretools.vscode-docker",
+        "hashicorp.terraform",
+        "redhat.vscode-yaml",
+        "github.vscode-pull-request-github",
+        "streetsidesoftware.code-spell-checker",
+        "usernamehw.errorlens"
+      ]
+    }
+  },
+  "forwardPorts": [
+    8080,
+    3000,
+    3001,
+    9090,
+    5432,
+    4222,
+    6379
+  ],
+  "postCreateCommand": "make dev-setup || true",
+  "postStartCommand": "echo 'Dev container ready! Run: make dev'",
+  "remoteUser": "vscode",
+  "containerEnv": {
+    "ENVIRONMENT": "development",
+    "LOG_LEVEL": "debug"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "dashboard": {
+    "title": "DevPlatform Overview",
+    "tags": ["devplatform", "overview"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Control Plane Requests/sec",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"devplatform-control-plane\"}[5m])",
+            "legendFormat": "{{method}} {{path}}"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Control Plane Latency (p99)",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job=\"devplatform-control-plane\"}[5m]))",
+            "legendFormat": "p99"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"devplatform-control-plane\"}[5m]))",
+            "legendFormat": "p95"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Active Deployments",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 8, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(deployments_active{job=\"devplatform-control-plane\"})",
+            "legendFormat": "Active"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "AI Jobs Queue",
+        "type": "stat",
+        "gridPos": {"x": 6, "y": 8, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(ai_jobs_pending{job=\"devplatform-control-plane\"})",
+            "legendFormat": "Pending"
+          },
+          {
+            "expr": "sum(ai_jobs_running{job=\"devplatform-control-plane\"})",
+            "legendFormat": "Running"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Environments",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 8, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(environments_total{job=\"devplatform-control-plane\"})",
+            "legendFormat": "Total"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "WebSocket Connections",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 8, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(ws_connections_active{job=\"devplatform-control-plane\"})",
+            "legendFormat": "Active"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Error Rate",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"devplatform-control-plane\",status=~\"5..\"}[5m])",
+            "legendFormat": "5xx errors"
+          },
+          {
+            "expr": "rate(http_requests_total{job=\"devplatform-control-plane\",status=~\"4..\"}[5m])",
+            "legendFormat": "4xx errors"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Worker Pool Utilization",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 12, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "worker_pool_utilization{job=\"devplatform-worker\"}",
+            "legendFormat": "Utilization"
+          }
+        ]
+      }
+    ]
+  }
+}
