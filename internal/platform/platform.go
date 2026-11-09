@@ -16,13 +16,14 @@ import (
 	"github.com/atlur/devplatform/internal/gitops"
 	"github.com/atlur/devplatform/internal/worker"
 	"github.com/atlur/devplatform/pkg/models"
-	"github.com/atlur/devplatform/pkg/telemetry"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
 	"github.com/redis/go-redis/v9"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"github.com/spf13/viper"
 )
 
 type Platform struct {
@@ -367,7 +368,18 @@ func (p *Platform) UpdateProject(c *gin.Context) {
 		return
 	}
 
-	project := models.Project{ID: id, Name: req.Name, Description: req.Description, RepoURL: req.RepoURL, UpdatedAt: updatedAt}
+	uid, _ := uuid.Parse(id)
+	var pName, pDesc, pRepo string
+	if req.Name != nil {
+		pName = *req.Name
+	}
+	if req.Description != nil {
+		pDesc = *req.Description
+	}
+	if req.RepoURL != nil {
+		pRepo = *req.RepoURL
+	}
+	project := models.Project{ID: uid, Name: pName, Description: pDesc, RepoURL: pRepo, UpdatedAt: updatedAt}
 	c.JSON(http.StatusOK, project)
 }
 
@@ -405,8 +417,9 @@ func (p *Platform) CreateEnvironment(c *gin.Context) {
 		return
 	}
 
+	pUUID, _ := uuid.Parse(projectID)
 	env := &models.Environment{
-		ProjectID: projectID,
+		ProjectID: pUUID,
 		Name:      req.Name,
 		Namespace: req.Namespace,
 		Cluster:   req.Cluster,
@@ -538,9 +551,10 @@ func (p *Platform) DeployEnvironment(c *gin.Context) {
 		return
 	}
 
+	eUUID, _ := uuid.Parse(envID)
 	// Create deployment record
 	deployment := &models.Deployment{
-		EnvironmentID: envID,
+		EnvironmentID: eUUID,
 		CommitSHA:     req.CommitSHA,
 		Branch:        req.Branch,
 		Status:        "pending",
@@ -704,9 +718,10 @@ func (p *Platform) AIReviewPR(c *gin.Context) {
 		return
 	}
 
+	pjUUID, _ := uuid.Parse(projectID)
 	// Create AI job
 	job := &models.AIJob{
-		ProjectID: projectID,
+		ProjectID: pjUUID,
 		Type:      "pr_review",
 		Status:    "pending",
 		Input:     req,
@@ -748,8 +763,9 @@ func (p *Platform) AIGenerateDocs(c *gin.Context) {
 		return
 	}
 
+	pjUUID, _ := uuid.Parse(projectID)
 	job := &models.AIJob{
-		ProjectID: projectID,
+		ProjectID: pjUUID,
 		Type:      "generate_docs",
 		Status:    "pending",
 		Input:     req,
@@ -790,8 +806,9 @@ func (p *Platform) AIGenerateTests(c *gin.Context) {
 		return
 	}
 
+	pjUUID, _ := uuid.Parse(projectID)
 	job := &models.AIJob{
-		ProjectID: projectID,
+		ProjectID: pjUUID,
 		Type:      "generate_tests",
 		Status:    "pending",
 		Input:     req,
@@ -832,8 +849,9 @@ func (p *Platform) AIMigrateCode(c *gin.Context) {
 		return
 	}
 
+	pjUUID, _ := uuid.Parse(projectID)
 	job := &models.AIJob{
-		ProjectID: projectID,
+		ProjectID: pjUUID,
 		Type:      "migrate_code",
 		Status:    "pending",
 		Input:     req,

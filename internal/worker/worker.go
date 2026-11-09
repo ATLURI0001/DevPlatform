@@ -4,12 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/atlur/devplatform/internal/ai"
 	"github.com/atlur/devplatform/internal/gitops"
-	"github.com/atlur/devplatform/pkg/models"
 	"github.com/atlur/devplatform/pkg/telemetry"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
@@ -73,7 +71,7 @@ func (p *Pool) handleDeployment(msg *nats.Msg) {
 	commitSHA := jobData["commit_sha"].(string)
 	branch := jobData["branch"].(string)
 
-	p.logger.Info().Str("deployment_id", deploymentID).Msg("Processing deployment")
+	p.logger.Info().Str("deployment_id", deploymentID).Str("branch", branch).Msg("Processing deployment")
 
 	start := time.Now()
 	p.updateDeploymentStatus(deploymentID, "running", &start, nil)
@@ -162,6 +160,7 @@ func (p *Pool) handlePRReview(input interface{}) (map[string]interface{}, error)
 		BaseBranch: reqMap["base_branch"].(string),
 		HeadBranch: reqMap["head_branch"].(string),
 	}
+	_ = pr
 
 	// In real implementation, fetch diff from GitHub/GitLab API
 	// For now, return mock result

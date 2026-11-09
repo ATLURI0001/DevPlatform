@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/atlur/devplatform/internal/platform"
-	"github.com/atlur/devplatform/internal/telemetry"
+	"github.com/atlur/devplatform/pkg/telemetry"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"

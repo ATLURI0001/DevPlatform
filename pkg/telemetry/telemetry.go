@@ -3,7 +3,7 @@ package telemetry
 import (
 	"context"
 	"fmt"
-	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
@@ -15,11 +15,10 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/metric"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -133,7 +132,10 @@ func GinMiddleware(serviceName string) gin.HandlerFunc {
 		defer httpRequestsInFlight.WithLabelValues(c.Request.Method, path).Dec()
 
 		// Add trace context to response headers
-		traceID := otel.Tracer(serviceName).Start(c.Request.Context(), "").SpanContext().TraceID()
+		ctx, span := otel.Tracer(serviceName).Start(c.Request.Context(), path)
+		defer span.End()
+		c.Request = c.Request.WithContext(ctx)
+		traceID := span.SpanContext().TraceID()
 		if traceID.IsValid() {
 			c.Header("X-Trace-ID", traceID.String())
 		}
