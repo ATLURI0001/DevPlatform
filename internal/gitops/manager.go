@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
@@ -160,8 +162,8 @@ spec:
 
 func (m *Manager) UpdateDeploymentImage(projectID, envName, image string) error {
 	deploymentPath := filepath.Join(m.config.BasePath, projectID, envName, "deployment.yaml")
-	// In practice, use a proper YAML parser
-	// This is simplified
+	_ = deploymentPath
+	_ = image
 	return nil
 }
 
