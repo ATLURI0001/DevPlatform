@@ -7,7 +7,7 @@ require (
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/websocket v1.5.1
+	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.5.3
 	github.com/nats-io/nats.go v1.34.0
 	github.com/prometheus/client_golang v1.18.0
