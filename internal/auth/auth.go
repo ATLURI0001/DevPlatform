@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -9,8 +10,10 @@ import (
 )
 
 var (
-	ErrInvalidToken = errors.New("invalid token")
-	ErrExpiredToken = errors.New("token expired")
+	ErrInvalidToken  = errors.New("invalid token")
+	ErrExpiredToken  = errors.New("token expired")
+	ErrInvalidSecret = errors.New("signing secret must not be empty")
+	ErrInvalidTTL    = errors.New("token ttl must be positive")
 )
 
 type Claims struct {
@@ -21,6 +24,12 @@ type Claims struct {
 }
 
 func GenerateToken(userID, email string, roles []string, secret string, ttl int) (string, error) {
+	if secret == "" {
+		return "", ErrInvalidSecret
+	}
+	if ttl <= 0 {
+		return "", ErrInvalidTTL
+	}
 	now := time.Now()
 	claims := Claims{
 		UserID: userID,
@@ -41,6 +50,9 @@ func GenerateToken(userID, email string, roles []string, secret string, ttl int)
 }
 
 func ValidateToken(tokenString, secret string) (*Claims, error) {
+	if secret == "" {
+		return nil, ErrInvalidSecret
+	}
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrInvalidToken
@@ -72,17 +84,21 @@ func RefreshToken(tokenString, secret string, ttl int) (string, error) {
 }
 
 func ExtractTokenFromHeader(authHeader string) (string, error) {
-	if authHeader == "" {
+	trimmed := strings.TrimSpace(authHeader)
+	if len(trimmed) <= len("Bearer ") {
 		return "", ErrInvalidToken
 	}
 
-	// Bearer <token>
 	const prefix = "Bearer "
-	if len(authHeader) < len(prefix) || authHeader[:len(prefix)] != prefix {
+	if !strings.EqualFold(trimmed[:len(prefix)], prefix) {
 		return "", ErrInvalidToken
 	}
 
-	return authHeader[len(prefix):], nil
+	token := strings.TrimSpace(trimmed[len(prefix):])
+	if token == "" {
+		return "", ErrInvalidToken
+	}
+	return token, nil
 }
 
 // HasRole checks if the claims have a specific role

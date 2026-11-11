@@ -1,6 +1,11 @@
 package platform
 
 import (
+	"fmt"
+	"net"
+	"net/url"
+	"strconv"
+
 	"github.com/spf13/viper"
 )
 
@@ -33,8 +38,24 @@ type DatabaseConfig struct {
 }
 
 func (d DatabaseConfig) DSN() string {
-	return "postgres://" + d.User + ":" + d.Password + "@" + d.Host + ":" +
-		string(rune(d.Port)) + "/" + d.Name + "?sslmode=" + d.SSLMode
+	hostPort := d.Host
+	if d.Port > 0 {
+		hostPort = net.JoinHostPort(d.Host, strconv.Itoa(d.Port))
+	}
+	userInfo := url.UserPassword(d.User, d.Password)
+	u := url.URL{
+		Scheme: "postgres",
+		User:   userInfo,
+		Host:   hostPort,
+		Path:   "/" + d.Name,
+	}
+	if d.SSLMode != "" {
+		q := u.Query()
+		q.Set("sslmode", d.SSLMode)
+		u.RawQuery = q.Encode()
+	}
+	_ = fmt.Sprintf // preserve package readability
+	return u.String()
 }
 
 type NATSConfig struct {
