@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5"
@@ -29,9 +30,43 @@ func NewManager(cfg Config) (*Manager, error) {
 	if cfg.BasePath == "" {
 		cfg.BasePath = "/tmp/gitops"
 	}
-	os.MkdirAll(cfg.BasePath, 0755)
+	if err := os.MkdirAll(cfg.BasePath, 0755); err != nil {
+		return nil, fmt.Errorf("create base path: %w", err)
+	}
 
 	return &Manager{config: cfg}, nil
+}
+
+func validateManifestValue(label, value string) error {
+	if strings.TrimSpace(value) == "" {
+		return fmt.Errorf("%s must not be empty", label)
+	}
+	if strings.ContainsAny(value, "\r\n\x00") {
+		return fmt.Errorf("%s contains forbidden control characters", label)
+	}
+	return nil
+}
+
+func resolveEnvDir(basePath, projectID, envName string) (string, error) {
+	if err := validateManifestValue("projectID", projectID); err != nil {
+		return "", err
+	}
+	if err := validateManifestValue("envName", envName); err != nil {
+		return "", err
+	}
+	if filepath.IsAbs(projectID) || filepath.IsAbs(envName) {
+		return "", fmt.Errorf("projectID and envName must be relative paths")
+	}
+	baseAbs, err := filepath.Abs(basePath)
+	if err != nil {
+		return "", fmt.Errorf("resolve base path: %w", err)
+	}
+	target := filepath.Join(baseAbs, projectID, envName)
+	rel, err := filepath.Rel(baseAbs, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("environment path escapes base directory")
+	}
+	return target, nil
 }
 
 func (m *Manager) CloneRepo(ctx context.Context, repoURL, branch, destDir string) error {
@@ -51,8 +86,19 @@ func (m *Manager) CloneRepo(ctx context.Context, repoURL, branch, destDir string
 }
 
 func (m *Manager) CreateEnvironmentManifests(projectID, envName, namespace, cluster string, config map[string]interface{}) error {
-	envPath := filepath.Join(m.config.BasePath, projectID, envName)
-	os.MkdirAll(envPath, 0755)
+	if err := validateManifestValue("namespace", namespace); err != nil {
+		return err
+	}
+	if err := validateManifestValue("cluster", cluster); err != nil {
+		return err
+	}
+	envPath, err := resolveEnvDir(m.config.BasePath, projectID, envName)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(envPath, 0755); err != nil {
+		return fmt.Errorf("create environment path: %w", err)
+	}
 
 	// Create kustomization.yaml
 	kustomization := fmt.Sprintf(`apiVersion: kustomize.config.k8s.io/v1beta1
