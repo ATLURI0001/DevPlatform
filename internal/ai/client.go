@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -48,6 +49,8 @@ func NewClient(cfg Config) (*Client, error) {
 		default:
 			cfg.BaseURL = "https://api.openai.com/v1"
 		}
+	} else {
+		cfg.BaseURL = strings.TrimRight(cfg.BaseURL, "/")
 	}
 
 	return &Client{
@@ -174,13 +177,17 @@ func (c *Client) ChatStream(ctx context.Context, messages []ChatMessage, onChunk
 
 	// Parse SSE stream
 	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
-		line := scanner.Text()
+		line := strings.TrimSuffix(scanner.Text(), "\r")
 		if line == "" || line == "data: [DONE]" {
 			continue
 		}
-		if len(line) > 6 && line[:6] == "data: " {
-			data := line[6:]
+		if strings.HasPrefix(line, "data:") {
+			data := strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " ")
+			if data == "[DONE]" {
+				continue
+			}
 			var chunk struct {
 				Choices []struct {
 					Delta struct {
@@ -189,7 +196,7 @@ func (c *Client) ChatStream(ctx context.Context, messages []ChatMessage, onChunk
 				} `json:"choices"`
 			}
 			if err := json.Unmarshal([]byte(data), &chunk); err == nil {
-				if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+				if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" && onChunk != nil {
 					onChunk(chunk.Choices[0].Delta.Content)
 				}
 			}
