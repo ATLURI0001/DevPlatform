@@ -58,18 +58,51 @@ func (p *Pool) Stop() {
 	p.cancel()
 }
 
+func getStringField(m map[string]interface{}, key string) string {
+	if m == nil {
+		return ""
+	}
+	if v, ok := m[key]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
+func getMapField(m map[string]interface{}, key string) map[string]interface{} {
+	if m == nil {
+		return nil
+	}
+	if v, ok := m[key]; ok && v != nil {
+		if sub, ok := v.(map[string]interface{}); ok {
+			return sub
+		}
+	}
+	return nil
+}
+
 func (p *Pool) handleDeployment(msg *nats.Msg) {
+	if msg == nil || len(msg.Data) == 0 {
+		p.logger.Error().Msg("Empty deployment job message")
+		return
+	}
 	var jobData map[string]interface{}
 	if err := json.Unmarshal(msg.Data, &jobData); err != nil {
 		p.logger.Error().Err(err).Msg("Failed to unmarshal deployment job")
 		return
 	}
 
-	deploymentID := jobData["deployment_id"].(string)
-	projectID := jobData["project_id"].(string)
-	environmentID := jobData["environment_id"].(string)
-	commitSHA := jobData["commit_sha"].(string)
-	branch := jobData["branch"].(string)
+	deploymentID := getStringField(jobData, "deployment_id")
+	projectID := getStringField(jobData, "project_id")
+	environmentID := getStringField(jobData, "environment_id")
+	commitSHA := getStringField(jobData, "commit_sha")
+	branch := getStringField(jobData, "branch")
+
+	if deploymentID == "" || projectID == "" {
+		p.logger.Error().Msg("Missing required deployment_id or project_id in job data")
+		return
+	}
 
 	p.logger.Info().Str("deployment_id", deploymentID).Str("branch", branch).Msg("Processing deployment")
 
@@ -106,16 +139,25 @@ func (p *Pool) handleDeployment(msg *nats.Msg) {
 }
 
 func (p *Pool) handleAIJob(msg *nats.Msg) {
+	if msg == nil || len(msg.Data) == 0 {
+		p.logger.Error().Msg("Empty AI job message")
+		return
+	}
 	var jobData map[string]interface{}
 	if err := json.Unmarshal(msg.Data, &jobData); err != nil {
 		p.logger.Error().Err(err).Msg("Failed to unmarshal AI job")
 		return
 	}
 
-	jobID := jobData["job_id"].(string)
-	jobType := jobData["type"].(string)
-	projectID := jobData["project_id"].(string)
+	jobID := getStringField(jobData, "job_id")
+	jobType := getStringField(jobData, "type")
+	projectID := getStringField(jobData, "project_id")
 	input := jobData["input"]
+
+	if jobID == "" || jobType == "" {
+		p.logger.Error().Msg("Missing required job_id or type in AI job data")
+		return
+	}
 
 	p.logger.Info().Str("job_id", jobID).Str("type", jobType).Msg("Processing AI job")
 
@@ -153,12 +195,19 @@ func (p *Pool) handleAIJob(msg *nats.Msg) {
 }
 
 func (p *Pool) handlePRReview(input interface{}) (map[string]interface{}, error) {
-	reqMap := input.(map[string]interface{})
+	reqMap, ok := input.(map[string]interface{})
+	if !ok || reqMap == nil {
+		return nil, fmt.Errorf("invalid PR review input: expected object")
+	}
+	var prNumber int
+	if n, ok := reqMap["pr_number"].(float64); ok {
+		prNumber = int(n)
+	}
 	pr := &ai.PRContext{
-		RepoURL:    reqMap["repo_url"].(string),
-		PRNumber:   int(reqMap["pr_number"].(float64)),
-		BaseBranch: reqMap["base_branch"].(string),
-		HeadBranch: reqMap["head_branch"].(string),
+		RepoURL:    getStringField(reqMap, "repo_url"),
+		PRNumber:   prNumber,
+		BaseBranch: getStringField(reqMap, "base_branch"),
+		HeadBranch: getStringField(reqMap, "head_branch"),
 	}
 	_ = pr
 
