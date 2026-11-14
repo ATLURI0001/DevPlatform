@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -18,6 +19,34 @@ type Config struct {
 	AI       AIConfig
 	Telemetry TelemetryConfig
 	Environment string
+}
+
+func (c *Config) Validate() error {
+	if c == nil {
+		return fmt.Errorf("config cannot be nil")
+	}
+	if c.Server.ReadTimeout < 0 || c.Server.WriteTimeout < 0 || c.Server.IdleTimeout < 0 {
+		return fmt.Errorf("server timeouts must be non-negative")
+	}
+	if c.Database.Port < 0 || c.Database.Port > 65535 {
+		return fmt.Errorf("database port %d out of range [0, 65535]", c.Database.Port)
+	}
+	if c.Database.MaxConns < 0 {
+		return fmt.Errorf("database max connections cannot be negative")
+	}
+	if c.Auth.TokenTTL < 0 {
+		return fmt.Errorf("auth token TTL cannot be negative")
+	}
+	if c.AI.MaxTokens < 0 {
+		return fmt.Errorf("ai max tokens cannot be negative")
+	}
+	if c.AI.Temperature < 0 || c.AI.Temperature > 2.0 {
+		return fmt.Errorf("ai temperature must be between 0.0 and 2.0")
+	}
+	if c.Telemetry.SampleRate < 0.0 || c.Telemetry.SampleRate > 1.0 {
+		return fmt.Errorf("telemetry sample rate must be between 0.0 and 1.0")
+	}
+	return nil
 }
 
 type ServerConfig struct {
@@ -41,13 +70,17 @@ func (d DatabaseConfig) DSN() string {
 	hostPort := d.Host
 	if d.Port > 0 {
 		hostPort = net.JoinHostPort(d.Host, strconv.Itoa(d.Port))
+	} else if strings.Contains(d.Host, ":") && !strings.HasPrefix(d.Host, "[") {
+		// Bracket bare IPv6 addresses when no port is specified
+		hostPort = "[" + d.Host + "]"
 	}
 	userInfo := url.UserPassword(d.User, d.Password)
+	dbName := strings.TrimPrefix(d.Name, "/")
 	u := url.URL{
 		Scheme: "postgres",
 		User:   userInfo,
 		Host:   hostPort,
-		Path:   "/" + d.Name,
+		Path:   "/" + dbName,
 	}
 	if d.SSLMode != "" {
 		q := u.Query()
