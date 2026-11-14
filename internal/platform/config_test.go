@@ -64,4 +64,23 @@ func TestConfigValidate(t *testing.T) {
 	if err := cfg.Validate(); err == nil {
 		t.Fatalf("expected error on sample rate > 1.0")
 	}
+	cfg.Telemetry.SampleRate = 0.1
+
+	cfg.Server.Addr = "localhost"
+	if err := cfg.Validate(); err == nil {
+		t.Fatalf("expected error on server addr without colon")
+	}
+	cfg.Server.Addr = ":8080"
+
+	cfg.Redis.URL = "http://localhost:6379"
+	if err := cfg.Validate(); err == nil {
+		t.Fatalf("expected error on invalid redis scheme")
+	}
+	cfg.Redis.URL = "redis://localhost:6379"
+
+	cfg.NATS.URL = "invalid-url"
+	if err := cfg.Validate(); err == nil {
+		t.Fatalf("expected error on invalid nats url")
+	}
+	cfg.NATS.URL = "nats://localhost:4222"
 }

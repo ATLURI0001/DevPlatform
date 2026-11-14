@@ -25,6 +25,9 @@ func (c *Config) Validate() error {
 	if c == nil {
 		return fmt.Errorf("config cannot be nil")
 	}
+	if c.Server.Addr != "" && !strings.Contains(c.Server.Addr, ":") {
+		return fmt.Errorf("invalid server addr %q: must contain port separator ':'", c.Server.Addr)
+	}
 	if c.Server.ReadTimeout < 0 || c.Server.WriteTimeout < 0 || c.Server.IdleTimeout < 0 {
 		return fmt.Errorf("server timeouts must be non-negative")
 	}
@@ -33,6 +36,18 @@ func (c *Config) Validate() error {
 	}
 	if c.Database.MaxConns < 0 {
 		return fmt.Errorf("database max connections cannot be negative")
+	}
+	if c.NATS.URL != "" {
+		u, err := url.Parse(c.NATS.URL)
+		if err != nil || u.Scheme == "" {
+			return fmt.Errorf("invalid nats url %q: scheme is required", c.NATS.URL)
+		}
+	}
+	if c.Redis.URL != "" {
+		u, err := url.Parse(c.Redis.URL)
+		if err != nil || (u.Scheme != "redis" && u.Scheme != "rediss" && u.Scheme != "unix") {
+			return fmt.Errorf("invalid redis url %q: expected redis/rediss/unix scheme", c.Redis.URL)
+		}
 	}
 	if c.Auth.TokenTTL < 0 {
 		return fmt.Errorf("auth token TTL cannot be negative")
