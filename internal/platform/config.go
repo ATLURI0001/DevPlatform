@@ -58,6 +58,29 @@ func (c *Config) Validate() error {
 	if c.AI.Temperature < 0 || c.AI.Temperature > 2.0 {
 		return fmt.Errorf("ai temperature must be between 0.0 and 2.0")
 	}
+	if c.AI.BaseURL != "" {
+		u, err := url.Parse(c.AI.BaseURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+			return fmt.Errorf("invalid ai base url %q: expected http/https scheme", c.AI.BaseURL)
+		}
+	}
+	if c.Telemetry.OTLPEndpoint != "" {
+		endpoint := strings.TrimSpace(c.Telemetry.OTLPEndpoint)
+		if endpoint == "" {
+			return fmt.Errorf("telemetry otlp endpoint cannot be whitespace only")
+		}
+		if strings.Contains(endpoint, "://") {
+			u, err := url.Parse(endpoint)
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "grpc") {
+				return fmt.Errorf("invalid telemetry otlp endpoint %q: expected http/https/grpc scheme", c.Telemetry.OTLPEndpoint)
+			}
+		}
+	}
+	if strings.EqualFold(c.Environment, "production") || strings.EqualFold(c.Environment, "prod") {
+		if c.Auth.JWTSecret == "" || c.Auth.JWTSecret == "dev-secret-change-in-production" || len(c.Auth.JWTSecret) < 16 {
+			return fmt.Errorf("production environment requires secure jwt secret of at least 16 characters")
+		}
+	}
 	if c.Telemetry.SampleRate < 0.0 || c.Telemetry.SampleRate > 1.0 {
 		return fmt.Errorf("telemetry sample rate must be between 0.0 and 1.0")
 	}
