@@ -122,4 +122,48 @@ func TestConfigValidate(t *testing.T) {
 	}
 	cfg.Environment = "development"
 	cfg.Auth.JWTSecret = "dev-secret-change-in-production"
+
+	cfg.Database.SSLMode = "invalid-ssl"
+	if err := cfg.Validate(); err == nil {
+		t.Fatalf("expected error on invalid sslmode")
+	}
+	cfg.Database.SSLMode = "verify-full"
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("unexpected error on valid sslmode verify-full: %v", err)
+	}
+	cfg.Database.SSLMode = "disable"
+
+	cfg.Auth.TokenTTL = 3000000 // > 30 days
+	if err := cfg.Validate(); err == nil {
+		t.Fatalf("expected error on excessive token ttl")
+	}
+	cfg.Auth.TokenTTL = 3600
+
+	if cfg.IsProduction() {
+		t.Fatalf("expected IsProduction() to be false for development")
+	}
+	cfg.Environment = "prod"
+	if !cfg.IsProduction() {
+		t.Fatalf("expected IsProduction() to be true for prod")
+	}
+	cfg.Environment = "development"
+}
+
+func TestDatabaseConfigSafeRedactedDSN(t *testing.T) {
+	cfg := DatabaseConfig{
+		Host:     "db.prod.internal",
+		Port:     5432,
+		User:     "admin",
+		Password: "supersecretpassword",
+		Name:     "production_db",
+		SSLMode:  "verify-full",
+	}
+	redacted := cfg.SafeRedactedDSN()
+	if redacted != "postgres://admin:REDACTED@db.prod.internal:5432/production_db?sslmode=verify-full" {
+		t.Fatalf("SafeRedactedDSN() did not redact password correctly: got %s", redacted)
+	}
+	// Verify original config is unchanged
+	if cfg.Password != "supersecretpassword" {
+		t.Fatalf("original password was modified: %s", cfg.Password)
+	}
 }

@@ -37,6 +37,14 @@ func (c *Config) Validate() error {
 	if c.Database.MaxConns < 0 {
 		return fmt.Errorf("database max connections cannot be negative")
 	}
+	if c.Database.SSLMode != "" {
+		mode := strings.ToLower(strings.TrimSpace(c.Database.SSLMode))
+		switch mode {
+		case "disable", "allow", "prefer", "require", "verify-ca", "verify-full":
+		default:
+			return fmt.Errorf("invalid database sslmode %q: expected disable/allow/prefer/require/verify-ca/verify-full", c.Database.SSLMode)
+		}
+	}
 	if c.NATS.URL != "" {
 		u, err := url.Parse(c.NATS.URL)
 		if err != nil || u.Scheme == "" {
@@ -51,6 +59,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Auth.TokenTTL < 0 {
 		return fmt.Errorf("auth token TTL cannot be negative")
+	}
+	if c.Auth.TokenTTL > 2592000 {
+		return fmt.Errorf("auth token TTL %d exceeds maximum allowable limit (30 days)", c.Auth.TokenTTL)
 	}
 	if c.AI.MaxTokens < 0 {
 		return fmt.Errorf("ai max tokens cannot be negative")
@@ -85,6 +96,14 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("telemetry sample rate must be between 0.0 and 1.0")
 	}
 	return nil
+}
+
+// IsProduction returns true if the environment is configured as production.
+func (c *Config) IsProduction() bool {
+	if c == nil {
+		return false
+	}
+	return strings.EqualFold(c.Environment, "production") || strings.EqualFold(c.Environment, "prod")
 }
 
 type ServerConfig struct {
@@ -127,6 +146,15 @@ func (d DatabaseConfig) DSN() string {
 	}
 	_ = fmt.Sprintf // preserve package readability
 	return u.String()
+}
+
+// SafeRedactedDSN returns the database connection string with credentials masked for safe logging.
+func (d DatabaseConfig) SafeRedactedDSN() string {
+	redacted := d
+	if redacted.Password != "" {
+		redacted.Password = "REDACTED"
+	}
+	return redacted.DSN()
 }
 
 type NATSConfig struct {
